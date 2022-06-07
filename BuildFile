@@ -1,0 +1,50 @@
+#Docker File
+FROM node:14.5.0-alpine  AS build
+WORKDIR /app
+ENV PATH /app/node_modules/.bin:$PATH
+COPY package.json ./
+COPY package-lock.json ./
+RUN npm ci --silent
+RUN npm install -g --silent
+COPY . ./
+RUN npm run build
+
+# production environment
+FROM nginx
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+# Docker Build
+sudo docker build -t webapp--nginx .
+
+# ACR Push
+ 
+az acr build --image web-app/webapp-nginx:latest   --registry webappacr12356   --file Dockerfile .
+
+# Access Kubectl
+
+sudo az aks install-cli
+
+az aks get-credentials -g Aks-rg -n webAksCluster
+
+
+# Install CertManager via kubectl
+
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.8.0/cert-manager.yaml
+
+#Install Certmanager using Helm
+
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.8.0 \
+  --set installCRDs=true
+
+
+  HPA :
+
+  kubectl autoscale deployment nginx-webapp --cpu-percent=50 --min=1 --max=3
+
+
